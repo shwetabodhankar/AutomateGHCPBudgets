@@ -1,0 +1,109 @@
+{
+  "name": "Process AI Budget Request",
+  "trigger": {
+    "connector": "SharePoint",
+    "operation": "When an item is created",
+    "siteUrl": "https://mngenvmcap628198.sharepoint.com/sites/demosite/",
+    "listName": "AI Budget Requests"
+  },
+  "configuration": {
+    "managerEmail": "admin@mngenvmcap628198.onmicrosoft.com",
+    "validationEndpointSetting": "AI_BUDGET_VALIDATION_ENDPOINT",
+    "fulfillmentEndpointSetting": "AI_BUDGET_FULFILLMENT_ENDPOINT",
+    "functionKeySetting": "AI_BUDGET_FUNCTION_KEY"
+  },
+  "actions": [
+    {
+      "name": "Initialize request",
+      "operation": "Update SharePoint item",
+      "values": {
+        "RequestId": "@{guid()}",
+        "RequesterEmail": "@{triggerOutputs()?['body/Author/Email']}",
+        "ManagerEmail": "admin@mngenvmcap628198.onmicrosoft.com",
+        "RequestStatus": "Validating"
+      }
+    },
+    {
+      "name": "Validate request",
+      "operation": "HTTP POST",
+      "endpointSetting": "AI_BUDGET_VALIDATION_ENDPOINT",
+      "authentication": "Function key",
+      "bodyContract": {
+        "requestId": "SharePoint RequestId",
+        "requesterEmail": "SharePoint RequesterEmail",
+        "gitHubUsername": "SharePoint GitHubUsername",
+        "costCenter": "SharePoint CostCenter",
+        "requestedTotalUsd": "SharePoint RequestedTotalUsd",
+        "expirationDate": "SharePoint ExpirationDate",
+        "justification": "SharePoint Justification"
+      }
+    },
+    {
+      "name": "Record validation",
+      "operation": "Update SharePoint item",
+      "valuesFromResponse": [
+        "ValidationPassed",
+        "ValidationReasons",
+        "CurrentBudgetUsd",
+        "AdditionalCommitmentUsd",
+        "CostCenterRemainingUsd",
+        "UniversalRemainingUsd",
+        "ValidatedAt",
+        "ValidationId"
+      ]
+    },
+    {
+      "name": "Stop invalid request",
+      "condition": "valid equals false",
+      "operation": "Set Validation Failed and notify requester"
+    },
+    {
+      "name": "Request manager approval",
+      "condition": "valid equals true",
+      "operation": "Start and wait for an approval",
+      "assignedTo": "admin@mngenvmcap628198.onmicrosoft.com",
+      "approvalType": "Approve/Reject - First to respond"
+    },
+    {
+      "name": "Handle rejection",
+      "condition": "approval outcome is not Approve",
+      "operation": "Set Rejected, record comments, and notify requester"
+    },
+    {
+      "name": "Record approval",
+      "condition": "approval outcome is Approve",
+      "operation": "Update SharePoint item",
+      "values": {
+        "RequestStatus": "Approved",
+        "ApprovalOutcome": "Approved",
+        "ApprovedAt": "@{utcNow()}"
+      }
+    },
+    {
+      "name": "Fulfill request",
+      "operation": "HTTP POST",
+      "endpointSetting": "AI_BUDGET_FULFILLMENT_ENDPOINT",
+      "authentication": "Function key",
+      "notes": "Send the original request, ValidationId, approver email, and approval timestamp. The endpoint revalidates before writing to GitHub."
+    },
+    {
+      "name": "Record fulfillment",
+      "operation": "Update SharePoint item",
+      "valuesFromResponse": [
+        "OperationId",
+        "GitHubBudgetId",
+        "PreviousState",
+        "ResultingState",
+        "FulfilledAt"
+      ],
+      "status": "Completed"
+    }
+  ],
+  "failurePolicy": {
+    "validationFailureStatus": "Failed",
+    "fulfillmentFailureStatus": "Failed",
+    "recordErrorDetails": true,
+    "notifyAdministrator": true,
+    "doNotContinueOnMissingBudgetData": true
+  }
+}

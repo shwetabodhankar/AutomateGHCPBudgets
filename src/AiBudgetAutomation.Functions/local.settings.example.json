@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "GitHub__Enterprise": "ENTERPRISE_SLUG",
+    "GitHub__Token": "STORE_LOCALLY_ONLY",
+    "GitHub__ApiVersion": "2026-03-10"
+  }
+}
