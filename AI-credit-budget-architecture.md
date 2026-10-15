@@ -77,7 +77,9 @@ flowchart LR
 ```mermaid
 flowchart TD
     Start([User submits budget request]) --> Capture[Capture user, total USD budget, justification, cost center, and expiration]
-    Capture --> Validate{Request valid?}
+    Capture --> Validate{Automated validation passed?}
+    ValidationScope[Validation includes required fields and amount,<br/>valid requester and cost center,<br/>cost-center and universal budget capacity,<br/>and available current budget data]
+    ValidationScope -.-> Validate
 
     Validate -->|No| Reject[Record rejection reason]
     Reject --> NotifyReject[Notify requester]
