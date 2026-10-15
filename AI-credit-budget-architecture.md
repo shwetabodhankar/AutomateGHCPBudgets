@@ -10,7 +10,7 @@ budgets.
 flowchart LR
     subgraph Users[People]
         Requester[Requester]
-        Approvers[Manager / Budget Owner / Finance]
+        Manager[Manager]
         Admin[Copilot Administrator]
     end
 
@@ -39,7 +39,7 @@ flowchart LR
     Form -->|New response| Intake
     Intake -->|Create pending request| Requests
     Intake -->|Request approval| Approval
-    Approval <-->|Approve / reject| Approvers
+    Approval <-->|Approve / reject| Manager
     Approval -->|Approved request ID| Fulfillment
     Fulfillment -->|Read approved state| Requests
     Fulfillment -->|Read configuration| Config
@@ -64,7 +64,7 @@ flowchart LR
 | Microsoft Forms | Collects the initial request |
 | Intake flow | Validates fields and creates a tracked request |
 | SharePoint list | Stores desired state, approval status, and processing result |
-| Approval flow | Routes the request according to amount and duration |
+| Approval flow | Routes each valid request to the requester's manager |
 | Fulfillment flow | Creates or updates the GitHub individual budget |
 | Reconciliation flow | Compares approved requests with GitHub's actual state |
 | Notification flow | Sends success, rejection, failure, and expiration notices |
@@ -84,15 +84,8 @@ flowchart TD
     NotifyReject --> StopReject([Request closed])
 
     Validate -->|Yes| Save[Create request with unique ID]
-    Save --> Tier{Requested total budget}
-
-    Tier -->|Up to 25 USD| Manager[Manager approval]
-    Tier -->|26 to 100 USD| ManagerOwner[Manager then budget owner approval]
-    Tier -->|Over 100 USD or no expiration| Extended[Manager, budget owner, and finance approval]
-
-    Manager --> Decision{Approved?}
-    ManagerOwner --> Decision
-    Extended --> Decision
+    Save --> ManagerApproval[Request manager approval]
+    ManagerApproval --> Decision{Approved?}
 
     Decision -->|No| Declined[Record declined status]
     Declined --> NotifyReject
@@ -121,8 +114,8 @@ flowchart TD
     Failure --> EndFailure([Manual investigation required])
 ```
 
-The budget thresholds shown above are recommended starting values. They should
-be configurable instead of being permanently embedded in the flow.
+Every valid request requires one approval from the requester's manager. The
+requested budget amount does not change the approval route.
 
 ## 3. Request fulfillment sequence
 
@@ -134,7 +127,7 @@ sequenceDiagram
     participant Intake as Intake Flow
     participant Store as SharePoint Requests
     participant Approval as Approval Flow
-    actor Approver
+    actor Manager
     participant Fulfill as Fulfillment Flow
     participant GitHub as GitHub Budgets API
     participant Notify as Notification Flow
@@ -142,18 +135,18 @@ sequenceDiagram
     Requester->>Forms: Submit requested total budget and justification
     Forms->>Intake: Trigger with response ID
     Intake->>Forms: Get response details
-    Intake->>Intake: Validate fields and calculate approval tier
+    Intake->>Intake: Validate fields and identify requester's manager
     Intake->>Store: Create request with unique ID and Pending status
     Intake->>Approval: Start approval with request ID
-    Approval->>Approver: Send approval request
+    Approval->>Manager: Send approval request
 
     alt Request rejected
-        Approver-->>Approval: Reject with comments
+        Manager-->>Approval: Reject with comments
         Approval->>Store: Set status to Rejected
         Approval->>Notify: Send rejection result
         Notify-->>Requester: Request rejected with reason
     else Request approved
-        Approver-->>Approval: Approve
+        Manager-->>Approval: Approve
         Approval->>Store: Store approver and approval timestamp
         Approval->>Fulfill: Start fulfillment with request ID
         Fulfill->>Store: Read approved request and prior processing status
