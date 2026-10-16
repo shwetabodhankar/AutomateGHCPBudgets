@@ -84,6 +84,12 @@ $env:GITHUB_TOKEN = '<temporary token value>'
 Remove-Item Env:\GITHUB_TOKEN
 ```
 
+The script creates `rg-ai-budget-prototype` when it does not exist. The Azure
+deployment identity therefore needs permission to create resource groups at
+the subscription scope. If the identity is restricted to a resource group,
+create the empty resource group first and grant the identity Contributor access
+to that group.
+
 The deployment script stops before provisioning if the token is missing or the
 Function App name is unavailable. It does not print the token.
 

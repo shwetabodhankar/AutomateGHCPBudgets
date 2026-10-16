@@ -70,10 +70,26 @@ $zipPath = Join-Path $artifactDirectory 'function.zip'
 $projectPath = Join-Path $PSScriptRoot '..\src\AiBudgetAutomation.Functions\AiBudgetAutomation.Functions.csproj'
 
 try {
-    az group create `
-        --name $ResourceGroup `
-        --location $Location `
-        --output none
+    $resourceGroupExists = az group exists --name $ResourceGroup
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to check whether resource group '$ResourceGroup' exists."
+    }
+
+    if ($resourceGroupExists -ne 'true') {
+        Write-Host "Creating resource group '$ResourceGroup' in '$Location'."
+
+        az group create `
+            --name $ResourceGroup `
+            --location $Location `
+            --output none
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to create resource group '$ResourceGroup'. The deployment identity must have permission to create resource groups at the subscription scope."
+        }
+    }
+    else {
+        Write-Host "Using existing resource group '$ResourceGroup'."
+    }
 
     az storage account create `
         --name $storageAccountName `
